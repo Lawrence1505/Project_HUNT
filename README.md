@@ -29,6 +29,27 @@ npm run dev
 
 `npm run build` produces the production bundle in `dist/`; `npm run preview` serves it.
 
+### Running it day-to-day (after the first setup)
+
+Once installed, you don't reinstall — you just start the three services:
+
+```powershell
+# One-click (Windows): starts Docker DB + API + web, opens the browser
+powershell -File start.ps1
+# Stop everything (data is preserved):
+powershell -File stop.ps1
+```
+
+Or manually, in three terminals (start Docker Desktop first):
+
+```powershell
+docker start heal-postgres            # 1. database  (port 5433)
+cd server ; npm start                 # 2. API       (port 4000)
+npm run dev                           # 3. web app   (port 5173)
+```
+
+Then open **http://localhost:5173**.
+
 **Accounts** live in PostgreSQL (bcrypt passwords, JWT sessions). Sign-up
 verifies your **email and phone via 6-digit OTPs**, sign-in takes email *or*
 phone, and there's a forgot-password flow. It all runs free out of the box —
