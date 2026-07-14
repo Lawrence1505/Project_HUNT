@@ -1,0 +1,72 @@
+/* ============================================
+   HEAL Design Tokens — dark, neon, glassmorphism
+   ============================================ */
+:root {
+  /* Surfaces */
+  --bg-0: #06060c;
+  --bg-1: #0a0a16;
+  --bg-2: #10101f;
+  --glass: rgba(255, 255, 255, 0.045);
+  --glass-strong: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-border-bright: rgba(139, 92, 246, 0.45);
+
+  /* Brand */
+  --violet: #8b5cf6;
+  --violet-deep: #6d28d9;
+  --blue: #38bdf8;
+  --cyan: #22d3ee;
+  --magenta: #d946ef;
+  --grad-brand: linear-gradient(135deg, #8b5cf6 0%, #38bdf8 100%);
+  --grad-brand-soft: linear-gradient(135deg, rgba(139,92,246,.18), rgba(56,189,248,.14));
+
+  /* Text */
+  --text-1: #f2f2fa;
+  --text-2: #b9b9cf;
+  --text-3: #7d7d99;
+
+  /* Status */
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #38bdf8;
+
+  /* Stat category colors */
+  --cat-strength: #f87171;
+  --cat-mind: #a78bfa;
+  --cat-knowledge: #38bdf8;
+  --cat-health: #34d399;
+  --cat-finance: #fbbf24;
+  --cat-relationships: #fb7185;
+  --cat-productivity: #22d3ee;
+  --cat-creativity: #e879f9;
+  --cat-leadership: #f97316;
+  --cat-communication: #818cf8;
+
+  /* Difficulty colors */
+  --diff-easy: #34d399;
+  --diff-medium: #38bdf8;
+  --diff-hard: #a78bfa;
+  --diff-epic: #f472b6;
+
+  /* Geometry */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+
+  /* Elevation / glow */
+  --shadow-1: 0 4px 24px rgba(0, 0, 0, 0.45);
+  --glow-violet: 0 0 28px rgba(139, 92, 246, 0.28);
+  --glow-blue: 0 0 28px rgba(56, 189, 248, 0.22);
+
+  /* Typography */
+  --font-sans: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui,
+    -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 150ms var(--ease-out);
+  --t-med: 280ms var(--ease-out);
+}

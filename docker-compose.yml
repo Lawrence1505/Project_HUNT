@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: heal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: heal
+      POSTGRES_PASSWORD: healpass
+      POSTGRES_DB: heal
+    ports:
+      # host 5433 → container 5432 (5432 on this machine is used by another project)
+      - "5433:5432"
+    volumes:
+      - heal-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heal -d heal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  heal-pgdata:
