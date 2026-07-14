@@ -41,13 +41,18 @@ export async function findById(id) {
   return rows[0] ?? null;
 }
 
-/** Created via the verified-signup flow, so both flags start true. */
-export async function createUser({ name, email, phone, passwordHash }) {
+/**
+ * Create a user. Email is always verified (email OTP is required at signup).
+ * Phone is optional: stored only when a verified number is supplied, and
+ * `phone_verified` reflects whether it was actually confirmed.
+ */
+export async function createUser({ name, email, phone, passwordHash, phoneVerified = false }) {
+  const storedPhone = phone && phoneVerified ? phone : null;
   const { rows } = await pool.query(
     `INSERT INTO users (name, email, phone, password_hash, email_verified, phone_verified)
-     VALUES ($1, $2, $3, $4, true, true)
+     VALUES ($1, $2, $3, $4, true, $5)
      RETURNING ${USER_COLUMNS}`,
-    [name, email, phone, passwordHash]
+    [name, email, storedPhone, passwordHash, storedPhone ? true : false]
   );
   return rows[0];
 }

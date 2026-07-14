@@ -20,11 +20,13 @@ interface AuthResponse {
 export interface SignUpPayload {
   name: string;
   email: string;
-  /** Optional — email-only verification; phone is never OTP-verified. */
+  /** Optional. When provided, verified via OTP (dev) or Firebase phone auth. */
   phone?: string;
   password: string;
   /** Proof JWT from the email OTP verification step. */
   emailProof: string;
+  /** Proof JWT from the phone verification step — only when a phone was verified. */
+  phoneProof?: string;
 }
 
 interface AuthState {

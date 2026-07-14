@@ -227,6 +227,22 @@ router.post(
       });
     }
 
+    // Optional: if a phone was verified (dev OTP or Firebase), honor its proof.
+    let phoneVerified = false;
+    if (phone && req.body?.phoneProof) {
+      const phoneProof = verifyProofToken(req.body.phoneProof, {
+        purpose: "signup",
+        channel: "phone",
+      });
+      if (!phoneProof || phoneProof.idf !== phone) {
+        return res.status(400).json({
+          error: "Phone verification is missing or no longer valid — verify your phone again",
+          code: "BAD_PROOF",
+        });
+      }
+      phoneVerified = true;
+    }
+
     if (await findByEmail(email)) {
       return res
         .status(409)
@@ -241,7 +257,13 @@ router.post(
 
     let user;
     try {
-      user = await createUser({ name, email, phone, passwordHash: await bcrypt.hash(password, 11) });
+      user = await createUser({
+        name,
+        email,
+        phone,
+        passwordHash: await bcrypt.hash(password, 11),
+        phoneVerified,
+      });
     } catch (err) {
       if (err?.code === "23505") {
         return res

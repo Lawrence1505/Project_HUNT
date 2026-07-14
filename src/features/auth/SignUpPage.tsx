@@ -5,7 +5,13 @@ import { useAuth } from "../../store/auth";
 import { api } from "../../lib/api";
 import { AuthLayout, AuthError } from "./AuthLayout";
 import { OtpStep, type SendRecord } from "./OtpStep";
-import type { OtpSendInfo } from "./phone";
+import {
+  requestPhoneOtp,
+  confirmPhoneOtp,
+  smsProvider,
+  RECAPTCHA_CONTAINER_ID,
+  type OtpSendInfo,
+} from "./phone";
 import {
   isValidEmail,
   isValidPhone,
@@ -14,23 +20,20 @@ import {
   passwordError,
 } from "./validation";
 
-// Email-only verification: phone is optional and never OTP-verified.
-const STEPS = ["Details", "Verify Email", "Done"] as const;
-
 interface Proof {
   token: string;
   /** The normalized identifier this proof was issued for. */
   idf: string;
 }
 
-function StepChips({ step }: { step: number }) {
+function StepChips({ steps, step }: { steps: readonly string[]; step: number }) {
   return (
     <div
       className="row wrap"
       style={{ justifyContent: "center", gap: 6, marginBottom: 18 }}
       aria-label="Sign up progress"
     >
-      {STEPS.map((label, i) => {
+      {steps.map((label, i) => {
         const done = i < step;
         const active = i === step;
         return (
@@ -63,9 +66,11 @@ export default function SignUpPage() {
   const [showPw, setShowPw] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
 
-  // Email verification result (survives back/forward navigation)
+  // Verification results (survive back/forward navigation)
   const [emailProof, setEmailProof] = useState<Proof | null>(null);
   const [emailSend, setEmailSend] = useState<SendRecord | null>(null);
+  const [phoneProof, setPhoneProof] = useState<Proof | null>(null);
+  const [phoneSend, setPhoneSend] = useState<SendRecord | null>(null);
 
   // Final step
   const [creating, setCreating] = useState(false);
@@ -75,11 +80,18 @@ export default function SignUpPage() {
   const normEmail = useMemo(() => normalizeEmail(email), [email]);
   const normPhone = useMemo(() => normalizePhone(phone), [phone]);
 
+  // Phone is optional. When provided, it adds a verification step to the wizard.
+  const hasPhone = normPhone.length > 0;
+  const STEPS = hasPhone
+    ? (["Details", "Verify Email", "Verify Phone", "Done"] as const)
+    : (["Details", "Verify Email", "Done"] as const);
+  const PHONE_STEP = 2;
+  const DONE_STEP = hasPhone ? 3 : 2;
+
   function onDetailsSubmit(e: FormEvent) {
     e.preventDefault();
     if (name.trim().length < 2) return setDetailsError("Name must be at least 2 characters");
     if (!isValidEmail(email)) return setDetailsError("Enter a valid email address");
-    // Phone is optional — only validate when the user typed one.
     if (phone.trim() && !isValidPhone(phone))
       return setDetailsError("Phone must include the country code, e.g. +91 98765 43210");
     const pwErr = passwordError(password);
@@ -87,17 +99,25 @@ export default function SignUpPage() {
     if (password !== confirm) return setDetailsError("Passwords don't match");
     setDetailsError(null);
 
-    // Drop a proof taken for a different email than the current one.
+    // Drop proofs taken for a different identifier than the current one.
     const keepEmail = emailProof !== null && emailProof.idf === normEmail;
+    const keepPhone = phoneProof !== null && phoneProof.idf === normPhone;
     if (!keepEmail) {
       setEmailProof(null);
       setEmailSend(null);
     }
-    setStep(keepEmail ? 2 : 1);
+    if (!keepPhone) {
+      setPhoneProof(null);
+      setPhoneSend(null);
+    }
+    // Advance to the first step still needing verification.
+    if (!keepEmail) setStep(1);
+    else if (hasPhone && !keepPhone) setStep(PHONE_STEP);
+    else setStep(DONE_STEP);
   }
 
   async function createAccount() {
-    if (!emailProof || submitRef.current) return;
+    if (!emailProof || (hasPhone && !phoneProof) || submitRef.current) return;
     submitRef.current = true;
     setFinalError(null);
     setCreating(true);
@@ -105,9 +125,10 @@ export default function SignUpPage() {
       await signUp({
         name: name.trim(),
         email: normEmail,
-        phone: normPhone || undefined,
+        phone: hasPhone ? normPhone : undefined,
         password,
         emailProof: emailProof.token,
+        phoneProof: hasPhone ? phoneProof?.token : undefined,
       });
       navigate("/", { replace: true });
     } catch (err) {
@@ -118,20 +139,30 @@ export default function SignUpPage() {
     }
   }
 
-  // Email verified → create the account automatically (once).
+  // All required proofs collected → create the account automatically (once).
   useEffect(() => {
-    if (step === 2 && emailProof && !submitRef.current) {
+    if (step === DONE_STEP && emailProof && (!hasPhone || phoneProof) && !submitRef.current) {
       void createAccount();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, emailProof]);
+  }, [step, emailProof, phoneProof, hasPhone]);
+
+  function startOver() {
+    setEmailProof(null);
+    setEmailSend(null);
+    setPhoneProof(null);
+    setPhoneSend(null);
+    setFinalError(null);
+    submitRef.current = false;
+    setStep(0);
+  }
 
   return (
     <AuthLayout
       title="Begin your ascent"
       subtitle="One account. Every part of your life, leveling up."
     >
-      <StepChips step={step} />
+      <StepChips steps={STEPS} step={step} />
 
       {step === 0 && (
         <>
@@ -168,7 +199,10 @@ export default function SignUpPage() {
             </div>
             <div>
               <label className="label" htmlFor="signup-phone">
-                Phone <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>(optional)</span>
+                Phone{" "}
+                <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
+                  (optional — we'll verify it)
+                </span>
               </label>
               <input
                 id="signup-phone"
@@ -215,7 +249,7 @@ export default function SignUpPage() {
                 className="input"
                 type={showPw ? "text" : "password"}
                 autoComplete="new-password"
-                placeholder="Same password again"
+                placeholder="Re-enter your password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
               />
@@ -250,7 +284,7 @@ export default function SignUpPage() {
             onSent={setEmailSend}
             onVerified={(token) => {
               setEmailProof({ token, idf: normEmail });
-              setStep(2);
+              setStep(hasPhone ? PHONE_STEP : DONE_STEP);
             }}
           />
           <div className="row" style={{ justifyContent: "space-between" }}>
@@ -259,7 +293,11 @@ export default function SignUpPage() {
               Back
             </button>
             {emailProof !== null && (
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setStep(2)}>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setStep(hasPhone ? PHONE_STEP : DONE_STEP)}
+              >
                 Continue
                 <ArrowRight size={14} />
               </button>
@@ -268,7 +306,49 @@ export default function SignUpPage() {
         </div>
       )}
 
-      {step === 2 && (
+      {step === PHONE_STEP && hasPhone && (
+        <div className="col" style={{ gap: 14 }}>
+          <OtpStep
+            key={`phone-${normPhone}`}
+            channelLabel="phone"
+            identifier={normPhone}
+            note={
+              smsProvider() === "firebase"
+                ? undefined
+                : `A code was sent to ${normPhone}. (Dev mode: the code is printed on the API server console.)`
+            }
+            send={() => requestPhoneOtp(normPhone, "signup", RECAPTCHA_CONTAINER_ID)}
+            verify={(otp) => confirmPhoneOtp(normPhone, "signup", otp)}
+            verified={phoneProof !== null}
+            priorSend={phoneSend}
+            onSent={setPhoneSend}
+            onVerified={(token) => {
+              setPhoneProof({ token, idf: normPhone });
+              setStep(DONE_STEP);
+            }}
+          />
+          {/* invisible reCAPTCHA mounts here in Firebase mode */}
+          <div id={RECAPTCHA_CONTAINER_ID} />
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStep(1)}>
+              <ArrowLeft size={14} />
+              Back
+            </button>
+            {phoneProof !== null && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setStep(DONE_STEP)}
+              >
+                Continue
+                <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === DONE_STEP && (
         <div className="col" style={{ gap: 14, textAlign: "center" }}>
           <AuthError message={finalError} />
           {creating ? (
@@ -281,24 +361,13 @@ export default function SignUpPage() {
                 <RefreshCw size={16} />
                 Retry
               </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => {
-                  // Proofs expire after 30 min — let the user re-verify cleanly.
-                  setEmailProof(null);
-                  setEmailSend(null);
-                  setFinalError(null);
-                  submitRef.current = false;
-                  setStep(0);
-                }}
-              >
+              <button type="button" className="btn btn-ghost" onClick={startOver}>
                 Start over
               </button>
             </div>
           ) : (
             <p className="muted" style={{ margin: 0 }}>
-              Email verified — finishing up…
+              Verified — finishing up…
             </p>
           )}
         </div>
