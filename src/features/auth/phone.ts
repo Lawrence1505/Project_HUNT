@@ -80,6 +80,13 @@ export async function requestPhoneOtp(
       });
   const auth = authMod.getAuth(app);
 
+  // In dev, use Firebase's official test-mode: whitelisted "test phone numbers"
+  // verify without a real reCAPTCHA challenge or SMS (free on the Spark plan).
+  // Production builds keep the full invisible-reCAPTCHA + real-SMS flow.
+  if (import.meta.env.DEV) {
+    auth.settings.appVerificationDisabledForTesting = true;
+  }
+
   try {
     if (verifier) {
       try {
