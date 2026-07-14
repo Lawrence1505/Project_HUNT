@@ -489,6 +489,7 @@ curl -s -X POST $BASE/signin -H 'Content-Type: application/json' \
 | No email arrives, no error | SMTP vars are empty → console transport is active by design. Check the **server log** for the OTP. |
 | `auth/invalid-app-credential` (Firebase) | The reCAPTCHA token was rejected: wrong `VITE_FIREBASE_API_KEY`, domain not in **Authentication → Settings → Authorized domains**, or real SMS attempted without the Blaze plan. Use test phone numbers in dev. |
 | reCAPTCHA never appears / hangs | Ad blockers or privacy extensions blocking `google.com/recaptcha`; container element removed before render; unauthorized domain. `localhost` is authorized by default. |
+| `OPERATION_NOT_ALLOWED: SMS unable to be sent until this region enabled` | New Firebase projects block **all** SMS regions by default. Fix in **Authentication → Settings → SMS region policy** → Allow your country (or "Allow all regions"). Required even for test numbers in some projects. |
 | `auth/too-many-requests` (Firebase) | Firebase throttled the number/device. Wait, or use a configured test phone number. |
 | `400 BAD_PROOF` on `/signup` right after verifying | Proof expired (30 min), or the email/phone in the signup body doesn't exactly match the verified identifier (normalization matters), or `JWT_SECRET` changed between verify and signup. |
 | Tokens rejected immediately after issue | Clock skew — JWT `iat`/`exp` and Firebase ID-token checks assume a correct clock. Sync your system time (NTP), especially in VMs/containers. |
